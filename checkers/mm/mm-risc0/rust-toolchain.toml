@@ -1,0 +1,6 @@
+[toolchain]
+# This is the recommended toolchain for Risc0,
+# from the `cargo risczero new` template
+channel = "stable"
+components = ["rustfmt", "rust-src"]
+profile = "minimal"

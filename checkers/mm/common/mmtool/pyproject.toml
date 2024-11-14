@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "mmtool"
+version = "0.1.0"
+description = ""
+authors = ["Pi Squared, Inc. <contact@pi2.network>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.scripts]
+report = "mmtool.mmtool_report:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

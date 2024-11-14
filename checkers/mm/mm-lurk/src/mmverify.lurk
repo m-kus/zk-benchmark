@@ -1,0 +1,963 @@
+!(def error 
+    (lambda (type data)
+        (begin
+         (emit (list :error (list type data)))
+         (fail)
+        )
+    )
+)
+
+!(def assert (lambda (x) (if x x (error :assertion-failure x))))
+
+;; Logical operators
+!(def or  (lambda (x y) (if x t y))) 
+!(def and (lambda (x y) (if x y)))
+
+;; List operators
+!(def nil? (lambda (x) (eq x nil)))
+
+!(defrec append_left
+    (lambda (l m)
+        (if l
+            (if m
+                (append_left (cons (car m) l) (cdr m))
+                l
+            )
+            m
+        )
+    )
+)
+;; Note that the resulting sublist is reversed wrt l.
+!(defrec _nth_car 
+    (lambda (l n _l)
+        (if l
+            (if (= n 0) 
+                _l
+                (_nth_car (cdr l) (- n 1) (cons (car l) _l))
+            )
+            _l
+        )   
+    )
+)
+
+!(def nth_car (lambda (l n) (_nth_car l n nil)))
+
+;; filter: Keeps the elements where the given predicate holds in the given list.
+!(defrec filter 
+    (lambda (pred list)
+        (if list
+            (if (pred (car list))
+                (cons (car list) (filter pred (cdr list)))
+                (filter pred (cdr list))
+            ) ;; if
+        ) ;; if
+    ) ;; lambda
+) ;; filter (pred list)
+
+!(def remove 
+    (lambda (s x)
+        (if s
+            (filter (lambda (e) (not (eq x e))) s)
+        )
+    )
+)
+
+;; foldl :: (b -> a -> b) -> b -> [a] -> b
+;; If the list is empty, the result is the initial value. 
+;; If not, fold the tail of the list using as new initial value the result of 
+;; applying f to the old initial value and the first element. 
+!(defrec foldl 
+    (lambda (f z l)
+        (if l
+            (foldl f (f z (car l)) (cdr l))
+            z
+        ) ;; if
+    ) ;; lambda
+) ;; foldr (f z l)
+
+;; foldr :: (a -> b -> b) -> b -> [a] -> b
+;; If the list is empty, the result is the initial value z. 
+;; If not, apply f to the first element and the result of folding the rest. 
+!(defrec foldr
+    (lambda (f z l)
+        (if l
+            (f z (foldr f z (cdr l)))
+            z
+        ) ;; if
+    ) ;; lambda
+) ;; foldr (f z l)
+
+;; _product: calculates all pair-wise combinations of the elements of two lists.
+!(defrec _product
+    (lambda (l1 l2 pr)
+        (if l1
+            (let ((x (car l1))
+                  (ord_x (bignum (commit x))))
+                 (_product (cdr l1) l2
+                    (append pr
+                        (map (lambda (y)
+                                (let ((ord_y (bignum (commit y))))
+                                     (if (<= ord_x ord_y)
+                                         (list x y)
+                                         (list y x)
+                                     ) ;; if
+                                ) ;; let
+                              ) 
+                              l2
+                        ) ;; map
+                    ) ;; append
+                 ) ;; appl of product
+            ) ;; let
+            pr
+        ) ;; if
+    ) ;; lambda
+) ;; _product (x y l)
+
+!(defrec product 
+    (lambda (l1 l2) 
+        (if (and l1 l2)
+            (_product l1 l2 nil)
+            nil
+        ) ;; if
+    ) ;; lambda
+) ;; product (x y)
+
+;; Set operations
+!(defrec set!_union 
+    (lambda (x y s)
+        (if x 
+            (let ((hx (car x)))
+                (if (member? hx y)
+                    (set!_union (cdr x) y s)
+                    (set!_union (cdr x) y (cons hx s))
+                ) ;; if
+            ) ;; let
+        s
+        ) ;; if
+    ) ;; lambda
+) ;; set!union (x y)
+
+!(def set!union 
+    (lambda (x y) 
+        (if x
+            (if y
+                (set!_union x y y)
+                x
+            ) ;; if
+            y
+        ) ;; if
+    ) ;; lambda
+) ;; set!union
+
+!(defrec set!make
+    (lambda (x)
+        (if x
+            (if (member? (car x) (cdr x))
+                (set!make (cdr x))
+                (cons (car x) (set!make (cdr x)))
+            ) ;; if
+        ) ;; if
+    ) ;; lambda 
+) ;; set!make (x)
+
+!(def set!_intersection 
+    (lambda (x y i)
+        (if (and x y) 
+            (let ((xy (set!union x y)))
+                (filter (lambda (e) (and (member? e x) (member? e y))) xy)
+            ) ;; let
+        ) ;; if
+    ) ;; lambda
+) ;; set!_intersection (x y i)
+
+!(def set!intersection (lambda (x y) (set!_intersection x y nil)))
+
+;; Database operations
+!(def db!get_statement (lambda (db) (if (not (nil? db)) (car db) nil)))
+
+;; Frame operations
+!(def fr!make '((:C ()) (:V ()) (:D ()) (:F ()) (:FL ()) (:E ()) (:EL ())))
+
+!(def fr!keys (lambda (fr) (if fr (map (lambda (l) (car l)) fr))))
+
+!(def fr!update 
+    (lambda (f k v) 
+        (if (member? k (fr!keys f))
+            (map (lambda (x) (if (eq (car x) k) (list k v) x)) f)
+            (append f (list (list k v)))
+        ) ;; if
+    ) ;; lambda
+) ;; fr!update (f k v) 
+
+!(defrec fr!lookup (lambda (f k) (if f (cadar (filter (lambda (x) (eq (car x) k)) f)))))
+
+!(def fr!values (lambda (fr) (if fr (map (lambda (l) (cadr l)) fr))))
+
+;; Frame stack operations: a Frame Stack is a list of frames
+!(def fs!push (lambda (fs fr) (cons fr fs)))
+
+!(def fs!make (list fr!make))
+
+!(def fs!pop  (lambda (fs) (if fs (cadr fs))))
+
+;; Function fs!_any (fs tok idx) checks if tok exists at index idx in some frame in fs.
+;; Returns true if tok is a constant at some frame in the Frame stack fs and nil otherwise.
+!(def fs!_any  
+    (lambda (fs tok idx) 
+        (if fs 
+           (not 
+               (eq nil
+                   (filter (lambda (l) (member? tok l)) 
+                           (map (lambda (fr) (fr!lookup fr idx)) fs)
+                   ) ;; filter
+               ) ;; eq
+           ) ;; not
+        ) ;; if
+    ) ;; lambda
+) ;; fs!_any (fs tok idx)
+
+!(def fs!lookup_c (lambda (fs c) (fs!_any fs c :C)))
+
+!(def fs!lookup_v (lambda (fs v) (fs!_any fs v :V)))
+
+;; Variables fs is the framset ordered from the most recent one on its LHS.
+;; No need to reverse it as in mmverify.py script.
+!(defrec fs!_lookup_hyp
+    (lambda (fs idx v) 
+        (if fs
+            (let ((fr    (car fs))
+                  (fr_l  (fr!lookup fr idx)))
+                (if (member? v (fr!keys fr_l))
+                    (fr!lookup fr_l v)
+                    (fs!_lookup_hyp (cdr fs) idx v)
+                )
+            )
+        )
+    )
+)
+
+!(def fs!lookup_f (lambda (fs v) (fs!_lookup fs :FL v)))
+
+!(def fs!lookup_e (lambda (fs v) (fs!_lookup fs :EL v)))
+
+!(def fs!add_c 
+    (lambda (fr tok) 
+        (if fr 
+            (let ((cs (fr!lookup fr :C)))
+                (if (member? tok cs)
+                    (error "const already defined in scope: " tok)
+                    (if (member? tok (fr!lookup fr :V))
+                        (error "const already defined as var in scope: " tok)
+                        (fr!update fr :C (append cs (list tok)))
+                    ) ;; if
+                ) ;; if
+            ) ;; let
+        ) ;; if
+    ) ;; lambda  
+) ;; fs!add_c (fr tok)
+
+;; fs!add_c_stmt: Adds a constant statement to the top of the frame stack.
+!(def fs!add_c_stmt
+    (lambda (fs stmt)
+        (if fs
+            (fs!push (cdr fs)
+                (foldl fs!add_c (car fs) stmt)
+            )
+        )
+    )
+)
+
+!(def fs!add_v 
+    (lambda (fr tok) ;; add_v is defined on a frame, not the framestack
+        (if fr 
+            (let ((vs (fr!lookup fr :V)))
+                (if (member? tok vs)
+                    (error "var already defined in scope: " tok)
+                    (if (member? tok (fr!lookup fr :C))
+                        (error "var already defined as const in scope: " tok)
+                        (fr!update fr :V (append vs (list tok)))
+                    ) ;; if
+                ) ;; if
+            ) ;; let
+        ) ;; if
+    ) ;; lambda  
+) ;; fs!add_v (fr tok)
+
+!(def fs!add_v_stmt
+    (lambda (fs stmt)
+        (if fs
+            (fs!push (cdr fs)
+                (foldl fs!add_v (car fs) stmt)
+            )
+        )
+    )
+)
+
+!(def fs!add_f 
+    (lambda (fs var kind label)
+        (if fs
+            (if (not (fs!lookup_v fs var))                                         ;; Checks if var is declared in some frame in fs
+                (error "var in $f not defined: " var)   
+                (if (not (fs!lookup_c fs kind))                                    ;; checks if the type of var is declared as a constant in some frame in fs
+                    (error "const in $f not defined: " kind)   
+                    (let ((fr (car fs)))                                           ;; Fr is the most recent frame pushed to Frame stack fs
+                        (if (member? var (fr!keys (fr!lookup fr :FL)))             ;; Checks if variable in frame fr is already defined in the given scope, 
+                            (error "var in $f already defined in scope")           ;;                                            saved in the frame labels.
+                            (let ((fr_f  (fr!lookup fr :F))                        ;; fr_f is a list of lists of the form (var kind) for the current frame.
+                                  (fr_fl (fr!lookup fr :FL))                       ;; fr_fl is a disctionary (list of lists) where the keys are formed by variables.
+                                  (new_fr_f  (append fr_f (list (list kind var)))) ;; new_fr_f is the list of lists fr_f updated with (var kind).
+                                  (new_fr_fl (fr!update fr_fl var label))          ;; new_fr_fl is fr_fl updated with a new entry (var label).
+                                  (new_fr (fr!update (fr!update fr :F new_fr_f)    ;; Updates the current frame with the new float and the new label.
+                                                     :FL new_fr_fl)))   
+                                  (cons new_fr (cdr fs))                           ;; Updates the stack frame with the updated frame.
+                            ) ;; let
+                        ) ;; if
+                    ) ;; let
+                ) ;; if
+            ) ;; if
+        ) ;; if
+    ) ;; lambda
+) ;; fs!add_f (fs var kind label)
+
+!(def fs!add_e 
+    (lambda (fs stat label) 
+        ;; (emit stat)
+        ;; (emit label)
+        (if fs
+            (let ((fr        (car fs))
+                  (fr_e      (fr!lookup fr :E))
+                  (new_fr_e  (fr!update fr :E                                       
+                                        (append fr_e (list stat)))) ;; Updates the most recent frame with logical hypothesis, indexed by :E in a frame.
+                  (fr_el     (fr!lookup fr :EL))
+                  (new_fr_el (fr!update fr_el stat label))          ;; Updates the list of labels of the logical hypothesis indexed by :EL with the given label.
+                  (new_fr    (fr!update new_fr_e :EL new_fr_el)))   ;; Updates the current frame with the new hypothesis in new_fr_e with the new label in new_fr_el.
+                 (cons new_fr (cdr fs))                             ;; Updates the stack frame with the updated frame. 
+            ) ;; let
+        ) ;; if
+    ) ;; lambda
+) ;; fs!add_e (fs stat label)
+
+!(def fr!add_d
+    (lambda (fr stat)
+        (if fr
+            (let ((dv (filter 
+                    (lambda (x) (not (eq (car x) (cadr x)))) 
+                    (product stat stat)))
+                  (fr_d (fr!lookup fr :D)))                         
+                 (fr!update fr :D (set!union fr_d (set!make dv)))
+            ) ;; let
+        ) ;; if
+    ) ;; lambda
+) ;; fs!add_d (fs stat)
+
+!(def fs!add_d_stmt 
+    (lambda (fs stat) 
+        (if fs
+            (cons (fr!add_d (car fs) stat) (cdr fs))
+        )
+    )
+)
+
+!(def _monadic_append (lambda (y) (lambda (x) (append y x))))
+
+!(def __collect 
+    (lambda (l) 
+        (if l
+            (foldl _monadic_append nil l)
+        )
+    )
+)
+
+;; fs!_collect returns a list with the elements bound to idx on every frame in fs.
+!(defrec fs!_collect 
+    (lambda (fs idx)
+        (if fs
+            (__collect (map (lambda (fr) (fr!lookup fr idx)) fs))
+        ) ;; if
+    ) ;; lambda
+) ;; fs!_collect (fs idx)
+
+;; _hyp_tokens: Tokenizes the list of hypothesis
+!(defrec mm!__hyp_tokens 
+    (lambda (l acc) 
+        (if l 
+            (mm!__hyp_tokens (cdr l) 
+                (append (set!make (map (lambda (x) x) (car l))) acc)) 
+            acc
+        ) ;; if
+    ) ;; lambda
+) ;; mm!__hyp_tokens (l acc)
+
+!(def mm!_hyp_tokens (lambda (x) (mm!__hyp_tokens x nil)))
+
+;; mandatory_vars: checks which symbols are variables from a given statement and 
+;; the given set of logical hypothesis.
+!(def mm!_mandatory_vars 
+    (lambda (vars e_hyps stat) 
+        (filter (lambda (x) (member? x vars))
+                (set!make (append (set!make (mm!_hyp_tokens e_hyps)) stat))
+        ) ;; filter
+    ) ;; lambda 
+) ;; mm!_mandatory_vars (vars e_hyps stat)
+
+!(def _twin? (lambda (x) (eq (car x) (cadr x))))
+
+!(def mm!_make_f_hyps 
+    (lambda (fs mv)
+        (if fs
+            (filter (lambda (x) (member? (cadr x) mv))
+                    (map (lambda (x) x) (fs!_collect fs :F))
+            )
+        )
+    )
+)
+
+;; !(def _make_disjoint_variable_set)
+
+!(def mm!make_assertion
+    (lambda (fs stat)
+        (if fs
+            (let ((e_hyps (fs!_collect fs :E))
+                  ;; logical hypothesis
+                  (mv     (mm!_mandatory_vars (fs!_collect fs :V) e_hyps stat)) 
+                  ;; mandatory variables
+                  (dvs    (remove 
+                            (map (lambda (fr) 
+                                    (set!intersection (fr!lookup fr :D) 
+                                                      (filter (lambda (x) (not (_twin? x)))
+                                                              (set!make (product mv mv)))
+                                    ) 
+                                 )
+                                 fs)
+                            nil)
+                  ) 
+                  ;; dsjoint variables set
+                  (f_hyps (mm!_make_f_hyps fs mv))
+                  ;; floating hypothesis (types)
+                 )
+                 (list dvs f_hyps e_hyps stat)
+            )
+        )
+    )
+)
+
+;; Metamath operators
+!(def mm!block?  (lambda (x) (if (eq x :BLOCK)  t nil)))
+!(def mm!const?  (lambda (x) (if (eq x :CONST)  t nil)))
+!(def mm!vars?   (lambda (x) (if (eq x :VARS)   t nil)))
+!(def mm!disj?   (lambda (x) (if (eq x :DISJ)   t nil)))
+!(def mm!float?  (lambda (x) (if (eq x :FLOAT)  t nil)))
+!(def mm!logic?  (lambda (x) (if (eq x :LOGIC)  t nil)))
+!(def mm!assert? (lambda (x) (if (eq x :ASSERT) t nil)))
+!(def mm!proof?  (lambda (x) (if (eq x :PROOF)  t nil)))
+
+
+;; Parameter stack is already at sp index. (see `mm!_step_verify.)
+;; We only iterate on the remaining ones.
+!(defrec mm!__make_subst 
+    (lambda (mand_var stack subst)
+        (if (and mand_var stack)
+            (let ((entry (car stack))
+                  (_pair (car mand_var))
+                  (k     (car _pair))
+                  (v     (cadr _pair))
+                )
+                (if (eq (car entry) k)
+                    (mm!__make_subst (cdr mand_var) (cdr stack) 
+                                     (fr!update subst v (cdr entry)))
+                    (error "stack entry doesn't match mandatory var hyp in stack" 
+                        (list entry k v stack))
+                )
+            ) 
+            subst
+        )
+    )
+) ;; mm!__make_subst (mand_var stack subst)
+
+!(def mm!_make_subst (lambda (mand_var stack) (mm!__make_subst mand_var stack nil)))
+
+!(def mm!_apply_subst 
+    (lambda (stat subst)
+        (if stat
+            (remove 
+                (map
+                    (lambda (tok)
+                        (if (member? tok (fr!keys subst)) (fr!lookup subst tok) tok)
+                    )
+                    stat
+                )
+            nil)
+        )
+    )
+)
+
+!(def mm!_check_disj 
+    (lambda (disj subst)
+        t
+    )
+)
+
+!(defrec _tokenize 
+    (lambda (l _l)
+        (if l
+            (_tokenize (cdr l) 
+                (if (atom (car l))
+                    (append _l (list (car l)))
+                    (_tokenize (car l) _l)
+                )
+            )
+            _l
+        )
+    )
+)
+
+!(def tokenize (lambda (l) (_tokenize l nil)))
+
+!(defrec mm!_check_hyp 
+    (lambda (hyp subst stack)
+        (if (and hyp stack)
+            (let ((entry (car stack))
+                  (subst_h (mm!_apply_subst (car hyp) subst)))                   
+                (if (eq (tokenize entry) (tokenize subst_h))
+                    (mm!_check_hyp (cdr hyp) subst (cdr stack))
+                    nil
+                )
+            )
+            t
+        )
+    )
+)
+
+!(defrec mm!_stack_delete 
+    (lambda (stack n)
+        (if (and (> n 0) stack)
+            (mm!_stack_delete (cdr stack) (- n 1))
+            stack
+        )
+    )
+)
+
+!(def mm!_step_verify
+    (lambda (lbl_value stack) 
+        (if lbl_value
+            (let ((steptype (car  lbl_value))
+                (stepdat  (cadr lbl_value)))
+                    (if (member? steptype  '(:P :A))
+                        (let ((disj     (nth 0 stepdat))
+                            (mand_var (nth 1 stepdat))
+                            (hyp      (nth 2 stepdat))
+                            (result   (nth 3 stepdat))
+                            (npop     (+ (length mand_var)
+                                         (length hyp)))
+                            ) 
+                            (if (>= (length stack) npop)
+                                (let ((subst (mm!_make_subst mand_var 
+                                                (nth_car stack npop)))) 
+                                                ;; The topmost (+ (length mand_var) (length hyp)) frames 
+                                                ;; in the stack are used to create the substitution,
+                                                ;; counted from stack's (a list of lists) LHS.
+                                    (if (mm!_check_disj disj subst)
+                                        (if (mm!_check_hyp hyp subst 
+                                                (nth_car stack (length hyp)))
+                                                ;; The topmost (length hyp) frames from stack are
+                                                ;; used to check hypothesis.
+                                                (begin
+                                                    (emit (list "Debug _step_verify" (mm!_apply_subst result subst)))
+                                                    (cons (mm!_apply_subst result subst) (mm!_stack_delete stack npop))
+                                                )
+                                            ;; Delete the npop stack top cells. 
+                                            ;; The stack grows from RHS to LHS, as 
+                                            ;; opposed to mmverify.py script.
+                                            (error "hypothesis does not match substitution" (list hyp subst))
+                                        )
+                                        (error "disjoint violation" (list disj subst))
+                                    )
+                                )
+                                (error "stack underflow" (list (length stack) npop))
+                            )
+                        )
+                        (cons stepdat stack)
+                    )
+            ) ;; let
+            (error "mm!_step_verify : no lbl_value" lbl_value)
+        )
+    ) ;; lambda
+) ;; mm!_step_verify 
+
+!(def mm!_step_make_proof_ints 
+    (lambda (ch proof_ints cur_int)
+        (let ((u64_ch (u64 ch)))
+            (if (eq ch 'Z') (list (cons :NEG1 proof_ints) cur_int)
+            (if (and (<= (u64 'A') u64_ch) (<= u64_ch (u64 'T'))) 
+                (let ((_cur_int (+ (- (+ (* 20 cur_int) u64_ch) (u64 'A')) 1)))
+                    (list (cons (- _cur_int 1) proof_ints) 0)
+                )
+            (if (and (<= (u64 'U') u64_ch) (<= u64_ch (u64 'Y')))
+                (list proof_ints (+ (- (+ (* 5 cur_int) u64_ch) (u64 'U')) 1))
+            (error "mm!_step_make_proof_ints" ch)
+            )))
+        )
+    )
+)
+
+;; Builds a list of integers representing a compressed proof.
+!(defrec mm!__make_proof_ints
+    (lambda (compressed_proof proof_ints cur_int)
+        (if compressed_proof
+            (let ((ch (car compressed_proof))
+                  (_step (mm!_step_make_proof_ints ch proof_ints cur_int))
+                  (_proof_ints (car _step))
+                  (_cur_int (cadr _step)))
+                (mm!__make_proof_ints (cdr compressed_proof) _proof_ints _cur_int)
+            )
+            proof_ints
+        )
+    )
+) ;; mm!__make_proof_ints (compressed_proof proof_ints cur_int)
+
+!(def mm!_make_proof_ints (lambda (compressed_proof) (if compressed_proof (mm!__make_proof_ints compressed_proof nil 0))))
+
+!(def mm!_get_assertion               (lambda (labels k) (if labels (fr!lookup labels k) (error "mm!_get_assertion on empty database (no labels)" nil))))
+!(def mm!_get_disjoint_var_set        (lambda (assertion) (if assertion (nth 0 (cadr assertion)) (error "mm!_get_disjoint_var_set on empty database (no labels)" nil)))) 
+!(def mm!_get_float_hyp               (lambda (assertion) (if assertion (nth 1 (cadr assertion)) (error "mm!_get_float_hyp on empty database (no labels)"        nil))))
+!(def mm!_get_logical_hyp             (lambda (assertion) (if assertion (nth 2 (cadr assertion)) (error "mm!_get_logical_hyp on empty database (no labels)"      nil))))
+!(def mm!_get_conclusion              (lambda (assertion) (if assertion (car (nth 3 (cadr assertion))) (error "mm!_get_conclusion on empty database (no labels)" nil))))
+!(def mm!_get_proof                   (lambda (assertion) (if assertion (cadr (nth 3 (cadr assertion))) (error "mm!_get_proof on empty database (no labels)"     nil))))
+!(def mm!_is_compressed_proof         (lambda (proof) (if proof (eq (car proof) :CMP))))
+!(def mm!_get_compressed_proof        (lambda (proof) (if (mm!_is_compressed_proof proof) (nth 2 proof) (error "mm!_get_compressed_proof on non-compressed proof" proof))))
+!(def mm!_get_compressed_proof_labels (lambda (proof) (if (mm!_is_compressed_proof proof) (nth 1 proof) (error "mm!_get_compressed_proof_labels on non-compressed proof" proof))))
+
+!(def mm!__make_hyp 
+    (lambda (fs idx hyp_stmts f)
+        (if (and fs hyp_stmts)
+            (map
+                (lambda (x) (fs!_lookup_hyp fs idx (f x)))
+                hyp_stmts
+            )
+        )
+    )
+)
+
+!(def mm!_make_hyp
+    (lambda (fs hyp idx f) 
+        (if fs
+            (mm!__make_hyp fs idx hyp f)
+            ;; (let ((h (mm!__make_hyp fs idx hyp f)))
+            ;;     (if (not h) 
+            ;;         (error "mm!_make_hyp returned nil" idx)
+            ;;         h
+            ;;     )
+            ;; )
+        )
+    )
+)
+
+;; Each element the floating hypothesis statement is a pair (kind var). We need to lookup FL using 
+;; the second projection of (kind var) as index for fs!_lookup_hyp.
+!(def mm!_make_hyp_f (lambda (fs hyp) (mm!_make_hyp fs hyp :FL (lambda (x) (cadr x)))))
+
+;; In the case of the logical hypothesis we just iterate over the hypothesis statement.
+!(def mm!_make_hyp_e (lambda (fs hyp) (mm!_make_hyp fs hyp :EL (lambda (x) x))))
+
+!(def mm!_valid_asrt_type 
+    (lambda (x) 
+        (if (atom x)
+            (or (or (or (eq x :A) (eq x :P)) (eq x :F)) (eq x :E))
+        )
+    )
+)
+
+!(defrec mm!__update_decomp_state                               
+    ;;       proof_ints hyp_end label_end self_labels labels decompressed_ints subproofs prev_proofs
+    (lambda (proof_ints hyp_end label_end self_labels labels di sp pp) 
+        (if proof_ints
+            (let ((pf_int (car proof_ints)))
+                (if (eq pf_int :NEG1)
+                    (begin
+                        (emit "Debug mm!__update_decomp_state: case 1") 
+                        (assert (> (length pp) 0))
+                        (assert (nth (- (length pp) 1) pp))
+                        (emit (list di (append sp (list (nth (- (length pp) 1) pp))) pp))
+                        (mm!__update_decomp_state (cdr proof_ints) hyp_end label_end self_labels labels 
+                            di (append sp (list (nth (- (length pp) 1) pp))) pp)
+                    )
+                (if (and (<= 0 pf_int) (< pf_int hyp_end))
+                    (begin
+                        (emit "Debug mm!__update_decomp_state: case 2") 
+                        (emit (list (append di (list pf_int)) sp (append pp (list (list pf_int)))))
+                        (mm!__update_decomp_state (cdr proof_ints) hyp_end label_end self_labels labels 
+                            (append di (list pf_int)) sp (append pp (list (list pf_int))))
+                    )
+                (if (and (<= hyp_end pf_int) (< pf_int label_end))
+                    (begin
+                        (emit "Debug mm!__update_decomp_state: case 3")
+                        ;; (emit labels)
+                        (assert (>= pf_int 0))
+                        (assert (>= (length labels) pf_int))
+                        ;; (emit (nth pf_int labels))
+                        (assert (member? (nth pf_int labels) (fr!keys self_labels)))
+                        (assert (fr!lookup self_labels (nth pf_int labels)))
+                        (let ((_di (append di (list pf_int)))
+                              (_proof_label (nth pf_int labels))  
+                              (step (fr!lookup self_labels _proof_label))
+                              (step_type (car step))
+                              (step_data (cadr step))
+                            )
+                            (begin
+                                (assert (mm!_valid_asrt_type step_type))
+                                (assert (= (length step_data) 4))
+                                (if (or (eq step_type :A) (eq step_type :P))
+                                    (let ((svars (nth 1 step_data))
+                                          (shyps (nth 2 step_data))
+                                          (nshyps (+ (length svars) (length shyps)))
+                                          )
+                                        (begin
+                                            ;; (emit step)
+                                            ;; (emit step_type)
+                                            ;; (emit step_data)
+                                            ;; (emit svars)
+                                            ;; (emit shyps)
+                                            ;; (emit nshyps)
+                                            (assert (>= nshyps 0))
+                                            (if (not (= nshyps 0))
+                                                (let ((new_prevpf (append (tokenize (nth-cdr (- (length pp) nshyps) pp)) (list pf_int)))
+                                                      (_prev_proofs (reverse (nth_car pp (- (length pp) nshyps))))
+                                                    )
+                                                    (begin 
+                                                        (emit (list "not = nshyps 0"  _di sp (append _prev_proofs (list new_prevpf))))
+                                                        ;; (emit (append _prev_proofs  (list new_prevpf)))
+                                                        (mm!__update_decomp_state (cdr proof_ints) hyp_end label_end self_labels labels
+                                                            _di sp (append _prev_proofs (list new_prevpf)))
+                                                    )
+                                                )
+                                                (begin 
+                                                    ;; (error "Debug mm!__update_decomp_state: new_prevpf" (list nshyps (append pp (list (list pf_int)))))
+                                                    (emit  (list "= nshyps 0" _di sp (append pp (list (list pf_int)))))
+                                                    ;; (emit (append pp (list (list pf_int))))
+                                                    (mm!__update_decomp_state (cdr proof_ints) hyp_end label_end self_labels labels 
+                                                        _di sp (append pp (list (list pf_int))))
+                                                )
+                                            )   
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                (if (<= label_end pf_int)
+                    (begin
+                        (emit "Debug mm!__update_decomp_state: case 4")
+                        (assert (>= pf_int label_end))
+                        (let ((pf  (nth (- pf_int label_end) sp))
+                              (_di (append di pf))
+                              (_pp (append pp (list pf))))
+                            (begin
+                                (emit (list "Debug mm!__update_decomp_state: pf" _di sp _pp))
+                                (mm!__update_decomp_state (cdr proof_ints) hyp_end label_end self_labels labels 
+                                    _di sp _pp)
+                            )
+                        )
+                    )
+                (error "mm!__update_decomp_state: no matching case" (list pf_int hyp_end label_end))
+                ))))
+            )
+            (list di sp pp)
+        )
+    )
+)
+
+!(def mm!_update_decomp_state 
+    (lambda (proof_ints hyp_end label_end self_labels labels)
+        (if proof_ints
+            (let ((decmp_proof (mm!__update_decomp_state proof_ints hyp_end label_end self_labels labels nil nil nil)))
+                (if decmp_proof
+                    (if (eq (length decmp_proof) 3)
+                        (map (lambda (x) (nth x labels)) (car decmp_proof))
+                        (error "mm!_update_decomp_state: ill formed decmp_proof" decmp_proof)
+                    )
+                    (error "mm!_update_decomp_state: no decmp_proof was generated" decmp_proof)
+                    
+                )
+            )
+        )
+    )   
+)
+
+!(def mm!_decompress_proof 
+    (lambda (fs self_labels stat proof)
+        (let (  (_asrt            (mm!make_assertion fs stat))         ;; _asrt = dm, mand_hyp_stmts, hyp_stmts, stat
+                (mand_hyps        (mm!_make_hyp_f fs (nth 1 _asrt)))
+                (hyps             (mm!_make_hyp_e fs (nth 2 _asrt)))
+                (labels           (append mand_hyps hyps))
+                (hyp_end          (length labels))
+                (_labels          (append labels (mm!_get_compressed_proof_labels proof)))
+                (compressed_proof (mm!_get_compressed_proof proof))
+                (proof_ints       (reverse (mm!_make_proof_ints compressed_proof)))
+                (label_end        (length _labels))
+            )
+            ;; (list stat proof _asrt mand_hyps hyps labels hyp_end _labels compressed_proof proof_ints)
+            (begin
+                (emit stat)
+                (emit proof)
+                (emit _asrt) 
+                (emit mand_hyps)
+                (emit hyps)
+                (emit labels) 
+                (emit hyp_end)
+                (emit _labels)
+                (emit compressed_proof)
+                (emit proof_ints)
+                (emit label_end)
+                ;; (emit (mm!_update_decomp_state proof_ints hyp_end label_end self_labels _labels))
+                (mm!_update_decomp_state proof_ints hyp_end label_end self_labels _labels)
+            )
+        )
+    )
+)
+
+!(defrec mm!_verify
+    (lambda (labels fs proof_labels n)
+        ;; (error "Debug mm!_verify " proof_labels))
+        (if proof_labels
+            (begin 
+                (emit '=====)
+                (emit (list 'Step n))
+                (emit (list "Stack:" fs))
+                ;; (emit (car proof_labels))  ;; conclusion (aka stat)
+                ;; (emit (cadr proof_labels)) ;; proof
+                ;; (if (< n 3)
+                    (mm!_verify labels 
+                            (mm!_step_verify (mm!_get_assertion labels (car proof_labels)) fs)
+                            (cdr proof_labels)                         
+                            (+ n 1)
+                    )
+                ;;     (error "Debug _verify" n)
+                ;; )
+            )
+            (begin 
+                (emit '=====)
+                (emit (list 'Step n " -- Final step"))
+                (emit (list "Stack:" fs))
+                (emit proof_labels)
+                fs
+            )
+        )
+    )    
+)
+
+;; Parameter proof is an assertion of the form 
+;; (proof_conclusion proof_body) where proof_body is the proof conclusion statement 
+;; followed by either a list of labels or a compressed proof of the form
+;; (:CMP proof_labels compressed_proof), where compressed_proof is a sequence of words in A-Z.
+!(def mm!verify 
+    (lambda (labels fs proof) 
+        (if (and labels proof)   ;; proof is a proof assertion.
+            (let ((_proof_labels ;; _proof_labels is a sequence of (decompressed) proof labels.
+                    (if (mm!_is_compressed_proof (cadr proof))
+                        (mm!_decompress_proof fs labels (car proof) (cadr proof))
+                        (cadr proof)
+                    )
+                  ))
+                (let ((_ver_res_pair (mm!_verify labels nil _proof_labels 0)))
+                    (if _ver_res_pair
+                       (if (> (length _ver_res_pair) 1)
+                           (error "stack after verification has >1 entry at end: " _ver_res_pair)
+                           (if (eq (tokenize (car _ver_res_pair)) (tokenize (car proof))) 
+                               ;; (car proof) is the proof conclusion statement.
+                               t
+                               (error "proof assertion was checked but differs from proof conclusion: " (list (tokenize (car proof)) (tokenize (car _ver_res_pair))))
+                           )
+                       )
+                       (error "mm!_verify returned empty list")
+                    )
+                )
+            )
+            (if (not proof) (error "No proof was given"    proof)
+                            (error "No database was given" labels)
+            )
+        )
+    )
+)
+
+;; mm!read is a mutually recursive function between mm!_read and fs!update_frame_from_stat.
+;; Currently in Lurk they need to be declared in the same letrec expression.
+;; Each statement processed by fs!update_frame_from_stat process a pair framestack and labels.
+;; Each pair is fed to the next fs!update_frame_from_stat call.
+!(def mm!read 
+    (lambda (db)
+        (letrec 
+            (
+                (fs!update_frame_stack_from_stat
+                    (lambda (fs stat labels)
+                        (let ((opcode (if (mm!block? stat) stat  (car stat))))
+                            (if (mm!block? opcode)  
+                                (let ((new_fs (fs!push fs fr!make))
+                                        (block  (cdr stat))
+                                        (pair   (mm!_read block new_fs labels))
+                                    )
+                                    (list (cdar pair) (cadr pair))
+                                )
+                            (if (mm!const? opcode)  (list (fs!add_c_stmt fs (cdr stat)) labels)
+                            (if (mm!vars?  opcode)  (list (fs!add_v_stmt fs (cdr stat)) labels)
+                            (if (mm!disj?  opcode)  (list (fs!add_d_stmt fs (cdr stat)) labels)
+                            (if (mm!float? opcode)  
+                                (let ((label (nth 1 stat))
+                                    (kind  (nth 2 stat)) 
+                                    (var   (nth 3 stat))
+                                    )
+                                    (list (fs!add_f fs var kind label)
+                                        (fr!update labels label (list :F (list kind var))))
+                                )
+                            (if (mm!logic? opcode)  
+                                (let ((hyp   (cddr stat))
+                                    (label (cadr stat)) 
+                                    )
+                                    (list (fs!add_e fs hyp label)
+                                        (fr!update labels label (list :E (list hyp))))
+                                )
+                                ;;(fs!add_e fs (cdr stat) (car stat))
+                            (if (mm!assert? opcode)  
+                                (let ((prop  (cddr stat))
+                                    (label (cadr stat)) 
+                                    )
+                                    (list fs
+                                        (fr!update labels label (list :A (mm!make_assertion fs prop))))
+                                )
+                                ;; (fs!add_a fs (cddr stat) (cadr stat) :A)
+                            (if (mm!proof?  opcode)  
+                                ;; stat = (:PROOF label (conclusion) (proof))
+                                (let ((proof (cddr stat)) ;; ((conclusion) (proof)), if compressed proof ((conclusion) (:CMP (labels)(proof)))
+                                      (label (cadr stat)))
+                                    (begin
+                                        (emit stat)
+                                        (if (mm!verify labels fs proof)
+                                            (list fs
+                                                (fr!update labels label (list :P (mm!make_assertion fs proof))))
+                                            (error "mm!read: proof verification error" label)
+                                        )
+                                    )
+                                )
+                            ;; (fs!add_a fs (cddr stat)  (cadr stat) :P))
+                            ))))))))
+                        )
+                    )
+                )
+                ;; mm!_read: Creates a frame stack and a dictionary of labels 
+                ;; from a memtamath database. 
+                (mm!_read 
+                    (lambda (db fs labels)
+                        (if db
+                            (let ((stat       (car db))
+                                  (_pair      (fs!update_frame_stack_from_stat fs stat labels))
+                                  (new_fs     (car _pair))
+                                  (new_labels (cadr _pair)))
+                                  (mm!_read (cdr db) new_fs new_labels))
+                            (list fs labels)
+                        )
+                    )
+                )
+            )
+            (if (mm!_read db fs!make nil) (emit "Verification sucessful") (emit "Verification unsucessful"))
+        )
+    )
+) ;; mm!read (db)

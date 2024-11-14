@@ -1,0 +1,11 @@
+[package]
+name = "mmtool"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmlib = {path = "../mmlib", default-features = false, features = ["perf"]}
+mmlib-host = {path = "../mmlib-host"}
+mmtokens = {path = "../mmtokens"}
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = {version = "4.5.9", features = ["derive"] }

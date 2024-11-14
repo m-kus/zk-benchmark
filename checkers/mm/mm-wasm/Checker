@@ -1,0 +1,59 @@
+#!/bin/bash
+
+CURRENT_DIR=$PWD
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+function usage() {
+  echo -e "Usage:\n\t${BASH_SOURCE[0]} <MM_FILE> [--execute]"
+  echo "the --execute flag triggers a dry-run"
+}
+
+if [ "$1" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+# Make sure to run/follow the steps from ./setup.sh
+CLI=`which zkwasm-cli`
+if [ ! -f $CLI ]; then
+    >&2 echo "Error: zkwasm CLI not found at $CLI. Did you follow the steps from ${SCRIPT_DIR}/setup.sh?"
+    exit 1
+fi
+
+PARAMS=${SCRIPT_DIR}/mm-params
+if [ ! -d $PARAMS ]; then
+    >&2 echo "Error: Public setup params not found at $PARAMS. Did you follow the steps from ${SCRIPT_DIR}/setup.sh?"
+    exit 1
+fi
+
+if [ -z $1 ]; then
+  >&2 echo "Error: missing MM file"
+  usage
+  exit 1
+fi
+
+MM_FILE=${CURRENT_DIR}/$1
+if [ ! -f "${MM_FILE}" ]; then
+    >&2 echo "Error: MM file not found at $1"
+    usage
+    exit 1
+fi
+
+ZK_INPUT="${MM_FILE}.zkwasm.bin"
+ZK_OUTPUT="${MM_FILE}.zkwasm.out"
+
+cd ${SCRIPT_DIR} # The following commands must be run from the script's directory
+# 2. build wasm image
+cd guest
+wasm-pack build --target web
+cd ..
+
+# 3. convert mm into zkWasm readable binary
+/usr/bin/time -f "Time elapsed for preprocessing: %E" cargo run --release -- $MM_FILE $ZK_INPUT
+
+if [ "$2" = "--execute" ]; then
+    /usr/bin/time -f "Time elapsed for executing: %E" $CLI --params $PARAMS metamath dry-run --wasm ./guest/pkg/method_bg.wasm --output ${ZK_OUTPUT} --private $ZK_INPUT:file
+else
+    /usr/bin/time -f "Time elapsed for proving: %E\nMax memory: %Mk" $CLI --params $PARAMS metamath prove --wasm ./guest/pkg/method_bg.wasm --output ${ZK_OUTPUT} --private $ZK_INPUT:file
+    /usr/bin/time -f "Time elapsed for receipt verification: %E" $CLI --params $PARAMS metamath verify --output ${ZK_OUTPUT}
+fi

@@ -1,0 +1,9 @@
+[package]
+name = "mmlib-host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmtokens = {path = "../mmtokens"}
+mmlib = {path = "../mmlib"} # features = ["gen_hints"]}
+clap = {version = "4.5.9", features = ["derive"]}

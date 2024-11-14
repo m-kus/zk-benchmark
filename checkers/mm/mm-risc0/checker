@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+build() { build_rust "$@"; }
+test()  { test_rust "$@"; }
+run()   { run_risc0 mm-risc0 "$@"; }
+
+main "$@"

@@ -1,0 +1,10 @@
+[package]
+name = "mm-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmlib-host = { path = "../../common/mmlib-host" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = "1.0"
+clap = { version = "4.0", features = ["derive", "env"] }

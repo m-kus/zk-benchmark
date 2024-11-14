@@ -1,0 +1,18 @@
+[package]
+name = "mmlib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mmtokens = {path = "../mmtokens"}
+clap = {version = "4.5.9", features = ["derive"], optional = true }
+
+[features]
+default = ["gen_hints"]
+perf = ["no_hints"]
+gen_hints = ["no_hints", "clap"]    
+use_hints = []
+no_hints = []
+prof-noinlines = ["prof-noinline-context", "prof-noinline-subst"]
+prof-noinline-context = []
+prof-noinline-subst = []
