@@ -10,8 +10,6 @@ use mmlib_host::prepare_mm_file;
 use mmlib_host::ToAxiomArgs;
 
 use mmtokens::TokenCode;
-use mmtokens::IdentTable;
-#[allow(unused_imports)]
 use mmtokens::show_symbol_tokens;
 
 #[derive(Parser)]

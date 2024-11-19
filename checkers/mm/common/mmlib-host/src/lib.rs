@@ -616,7 +616,12 @@ pub struct TokenRenumberingRecorder {
     lem_labels: Vec<Label>,
     hyp_labels: Vec<Label>,
     depth: u32,
+    stack_hyps: Vec<u32>,
+    // number of local_hyps in each block surrounding
+    // the current block
     local_hyps: u32,
+    // accumulates maximum number of $e hypotheses
+    // simultaneously active at any point in the proof.
     max_hyps: u32,
 }
 
@@ -652,7 +657,7 @@ impl TokenRenumberingRecorder {
         let mut symbol_map = BTreeMap::<Symbol, Symbol>::new();
         symbol_map.insert(OPEN_PAREN_SYM, OPEN_PAREN_SYM);
         symbol_map.insert(CLOSE_PAREN_SYM, CLOSE_PAREN_SYM);
-        // put variable declarations in the same order as the $f declarations
+        // assign variable codes in the same order as the $f declarations were found
         assert_eq!(self.f_stmts.len(), self.variables.len());
         for (v,_,_) in &self.f_stmts {
             symbol_map.insert(*v, next_sym.try_into().unwrap());
@@ -691,16 +696,14 @@ impl TokenRenumberingRecorder {
 
 impl TokenProcessor<'_> for TokenRenumberingRecorder {
     fn new_frame(&mut self) {
-        assert!(self.depth < 1);
         self.depth += 1;
+        self.stack_hyps.push(self.local_hyps);
     }
 
     fn pop_frame(&mut self) {
         assert!(self.depth > 0);
-        if self.depth == 1 {
-            self.max_hyps = self.max_hyps.max(self.local_hyps);
-            self.local_hyps = 0;
-        }
+        self.max_hyps = self.max_hyps.max(self.local_hyps);
+        self.local_hyps = self.stack_hyps.pop().unwrap();
         self.depth -= 1;
     }
 
@@ -735,7 +738,7 @@ impl TokenProcessor<'_> for TokenRenumberingRecorder {
     }
 
     fn handle_e(&mut self, label: Option<Label>, _stat: &stmt) {
-        assert!(self.depth == 1);
+        assert!(self.depth > 0);
         self.hyp_labels.push(label.unwrap());
         self.local_hyps += 1;
     }
@@ -762,7 +765,10 @@ impl Renumbering {
     }
 
     pub fn map_sym(&self, sym: Symbol) -> Symbol {
-        *self.symbol_map.get(&sym).unwrap()
+        match self.symbol_map.get(&sym) {
+            Some(s) => *s,
+            None => panic!("Did not find symbol {}", sym.token_code())
+        }
     }
     pub fn map_label(&self, label: Label) -> Label {
         *self.label_map.get(&label).unwrap()
@@ -895,9 +901,9 @@ impl TokenProcessor<'_> for RenumberTokens {
 }
 
 /// Check the structural conditions we want to rely on.
-/// 1. No nested blocks
-/// 2. $f declarations only at the top level
-/// 3. $e only in blocks
+/// There are two restrictions beyond standard metamath.
+/// 1. $f declarations only at the top level
+/// 2. $e only in blocks
 pub struct StrictCheck {
     depth: u32,
 }
@@ -912,7 +918,6 @@ impl StrictCheck {
 
 impl TokenProcessor<'_> for StrictCheck {
     fn new_frame(&mut self) {
-        assert!(self.depth < 1, "nested blocks");
         self.depth += 1;
     }
 
@@ -931,7 +936,7 @@ impl TokenProcessor<'_> for StrictCheck {
 
     fn handle_f(&mut self, _label: Option<Label>, stat: &stmt) {
         assert!(self.depth == 0, "$f within block");
-        assert!(stat.len() == 2);
+        assert!(stat.len() == 2, "$f statement must contain exactly 2 symbols");
     }
 
     fn handle_a(&mut self, _label: Option<Label>, _stat: &stmt) -> bool {
@@ -939,7 +944,7 @@ impl TokenProcessor<'_> for StrictCheck {
     }
 
     fn handle_e(&mut self, _label: Option<Label>, _stat: &stmt) {
-        assert!(self.depth == 1, "$e outside block");
+        assert!(self.depth > 0, "$e outside block");
     }
 
     fn handle_p(&mut self, _label: Option<Label>, _claim: &stmt, _proof: Proof) -> bool {
@@ -960,6 +965,13 @@ pub struct SplitIdentTable {
 }
 
 impl SplitIdentTable {
+    /// Construct a SplitIdentTable by composing a SimpleIdentTable and a Renumbering
+    /// Checks that the Renumbering covers all non-predefined symbols in the SplitIdentTable.
+    /// The error message is better here than if the RenumberTokens hits and unknown table
+    /// because we can get the original text from the SimpleIdentTable.
+    /// This check will not detect a label identifier being used in a
+    /// statement, because the SimpleIdentTable does not record how
+    /// a symbol is used, and such a token will have an entry in `ident_table`.
     pub fn by_renumbering(ident_table: &SimpleIdentTable, renumbering: &Renumbering) -> Self {
         let mut symbol_names = VecMap::new();
         let mut symbol_codes = BTreeMap::new();
@@ -974,6 +986,16 @@ impl SplitIdentTable {
             let name = ident_table.get(*src).unwrap().to_owned();
             label_names.insert(*tgt, name.clone());
             label_codes.insert(name, *tgt);
+        }
+
+        // Check that every non-predefined token in the SimpleIdentTable
+        // is mapped as either a symbol or label
+        for input_code in OPEN_PAREN..(ident_table.max_code()+1) {
+            if renumbering.label_map.contains_key(&input_code)
+                || renumbering.symbol_map.contains_key(&input_code.try_into().unwrap()) {
+                continue
+            }
+            panic!("Undeclared symbol in statement: {}", ident_table.get(input_code).unwrap());
         }
         SplitIdentTable { symbol_names, symbol_codes, label_names, label_codes }
     }

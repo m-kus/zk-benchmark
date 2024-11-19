@@ -1,0 +1,216 @@
+diff --git a/crates/cli/src/config.rs b/crates/cli/src/config.rs
+index f360775..216ac43 100644
+--- a/crates/cli/src/config.rs
++++ b/crates/cli/src/config.rs
+@@ -4,6 +4,7 @@ use std::io::Read;
+ use std::io::Write;
+ use std::path::Path;
+ use std::path::PathBuf;
++use std::time::Instant;
+ 
+ use anyhow::Result;
+ use circuits_batcher::args::HashType;
+@@ -254,9 +255,12 @@ impl Config {
+     ) -> anyhow::Result<()> {
+         let mut cached_proving_key = None;
+ 
++        let load_guest_timer = LoadGuestTimer::start();
+         println!("{} Load image...", style("[1/8]").bold().dim(),);
+         let module = self.read_wasm_image(wasm_image)?;
++        println!("{}", load_guest_timer.stop());
+ 
++        let setup_timer = SetupTimer::start();
+         println!("{} Load params...", style("[2/8]").bold().dim(),);
+         let params = self.read_params(params_dir)?;
+ 
+@@ -269,7 +273,9 @@ impl Config {
+             &self.phantom_functions,
+             &env,
+         );
++        println!("{}", setup_timer.stop());
+ 
++        let prove_timer = ProveTimer::start();
+         let (result, tables) = {
+             println!("{} Executing...", style("[3/8]").bold().dim(),);
+ 
+@@ -471,6 +477,7 @@ impl Config {
+             progress_bar.inc(1);
+         }
+         progress_bar.finish_and_clear();
++        println!("{}", prove_timer.stop());
+ 
+         {
+             let proof_load_info_path = output_dir.join(name_of_loadinfo(&self.name));
+@@ -566,3 +573,143 @@ impl Config {
+         Ok(())
+     }
+ }
++
++
++mod private {
++    use std::time::Instant;
++
++    pub trait Timer {
++        fn get_start_time(&self) -> Instant;
++        fn get_name() -> String;
++    }
++}
++
++pub trait Timer : private::Timer {
++    fn start() -> Self;
++    fn stop(&self) -> String {
++        let duration = self.get_start_time().elapsed();
++        format!("Time elapsed for {}: {:.2?}", Self::get_name(), duration)
++    }
++}
++
++pub struct PreprocessingTimer {
++    timer: Instant
++}
++
++impl private::Timer for PreprocessingTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "preprocessing".into()
++    }
++}
++
++impl Timer for PreprocessingTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++pub struct SetupTimer {
++    timer: Instant
++}
++
++impl private::Timer for SetupTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "setup".into()
++    }
++}
++
++impl Timer for SetupTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++pub struct LoadGuestTimer {
++    timer: Instant
++}
++
++impl private::Timer for LoadGuestTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "guest loading".into()
++    }
++}
++
++impl Timer for LoadGuestTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++pub struct ProveTimer {
++    timer: Instant
++}
++
++impl private::Timer for ProveTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "proving".into()
++    }
++}
++
++impl Timer for ProveTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++pub struct VerifyTimer {
++    timer: Instant
++}
++
++impl private::Timer for VerifyTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "receipt verification".into()
++    }
++}
++
++impl Timer for VerifyTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++pub struct TotalTimer {
++    timer: Instant
++}
++
++impl private::Timer for TotalTimer {
++    fn get_start_time(&self) -> Instant {
++        self.timer
++    }
++
++    fn get_name() -> String {
++        "total".into()
++    }
++}
++
++impl Timer for TotalTimer {
++    fn start() -> Self {
++        Self { timer: Instant::now() }
++    }
++}
++
++
+diff --git a/crates/cli/src/main.rs b/crates/cli/src/main.rs
+index a17e1d1..b3e2929 100644
+--- a/crates/cli/src/main.rs
++++ b/crates/cli/src/main.rs
+@@ -16,6 +16,7 @@ use delphinus_zkwasm::runtime::host::default_env::ExecutionArg;
+ 
+ use args::HostMode;
+ use config::Config;
++use config::{Timer, TotalTimer};
+ use delphinus_zkwasm::runtime::host::HostEnvBuilder;
+ use delphinus_zkwasm::zkwasm_host_circuits::host::db::MongoDB;
+ use file_backend::FileBackendBuilder;
+@@ -94,6 +95,7 @@ fn main() -> Result<()> {
+             )?;
+         }
+         Subcommands::Prove(arg) => {
++            let total_timer = TotalTimer::start();
+             let trace_dir = arg.output_dir.join("traces");
+             fs::create_dir_all(&trace_dir)?;
+ 
+@@ -153,6 +155,7 @@ fn main() -> Result<()> {
+                     arg.padding,
+                 )?;
+             }
++            println!("{}", total_timer.stop());
+         }
+         Subcommands::Verify(arg) => {
+             let config = Config::read(&mut fs::File::open(
+

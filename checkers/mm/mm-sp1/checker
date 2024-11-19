@@ -3,6 +3,16 @@
 
 build() { build_rust "$@"; }
 test()  { test_rust "$@"; }
-run()   { run_risc0 mm-sp1 "$@"; }
+run()   {
+  if [ ! -z $certgen ]
+  then
+      extra_args=""
+  else
+      extra_args="--execute"
+  fi
+
+
+    run_risc0 mm-sp1 "$@" $extra_args;
+}
 
 main "$@"

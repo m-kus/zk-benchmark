@@ -316,14 +316,12 @@ impl Default for OldFrameStack {
 /// information.
 ///
 /// Because of our extra structural restrictions over
-/// metamath files, several types of declarations are
-/// only allowed at the top level, so only `$e` and `$d`
-/// declarations actually need to support multiple scopes.
+/// metamath files, `$f` declarations do not need to
+/// support nested scopes.
 ///
-/// We also currently rely on the restriction against
-/// nested blocks, so we just have dedicated fields for
-/// holding the `$e` and `$d` data if we are within a block,
-/// cleared on exiting the block.
+/// To avoid memory allocation, data on `$e` hypotheses
+/// is kept in flat vectors [e_hyps] and [e_labels],
+/// with the division into blocks recorded in [e_counts].
 /// 
 /// This structure also relies on some connections between
 /// declaration order and token numbers.
@@ -335,7 +333,7 @@ impl Default for OldFrameStack {
 /// the set of free variables.
 #[derive(Debug)]
 pub struct FrameStack {
-    /// Depth of block nesting. 1 for outermost scope
+    /// Depth of block nesting. 0 for outermost scope, following metamath.pdf
     depth: u32,
     /// Known constant symbols
     c: Vec<Symbol>,
@@ -347,13 +345,17 @@ pub struct FrameStack {
     f: VarMap<Symbol>,
     /// Next expected `$f` declaration, used to enforce expected order.
     next_f: TokenCode,
-    /// Records top-level `$d` declarations
-    d: BTreeMap<Symbol,BTreeSet<Symbol>>,
-    /// Records `$d` declarations withn a block
-    d_block: BTreeMap<Symbol,BTreeSet<Symbol>>,
-    /// `$e` hypothesis statements within the current block
+    /// Records `$d` declarations. First entry is for the outermost scope.
+    /// Note that creating an empty [BTreeSet] does not allocate,
+    /// so blocks without `$d` declarations will not allocate.
+    d: Vec<BTreeMap<Symbol,BTreeSet<Symbol>>>,
+    /// Number of `$e` statements visible in each block around the current block.
+    /// Used to truncate [e_hyps] and [e_labels] when leaving nested blocks.
+    /// Has length equal to the [depth] value.
+    e_counts: Vec<u32>,
+    /// active `$e` hypothesis statements.
     e_hyps: Vec<InputStatement>,
-    /// `$e` hypothesis labels within the current block
+    /// active `$e` hypothesis labels
     e_labels: Vec<Label>,
     /// A buffer reused to reduce memory allocation when
     /// computing the "mandatory variables" of assertions.
@@ -362,15 +364,17 @@ pub struct FrameStack {
 
 impl Default for FrameStack {
     fn default() -> Self {
+        let mut d = Vec::with_capacity(2);
+        d.push(BTreeMap::new());
         FrameStack {
-            depth: 1,
+            depth: 0,
             c: Vec::new(),
             v: VarMap::new(),
             next_v: codes::VAR_BASE,
             f: VarMap::new(),
             next_f: codes::VAR_BASE,
-            d: BTreeMap::new(),
-            d_block: BTreeMap::new(),
+            d,
+            e_counts: Vec::new(),
             e_hyps: Vec::new(),
             e_labels: Vec::new(),
             mand_var_buf: Vec::new(),
@@ -381,22 +385,24 @@ impl Default for FrameStack {
 impl FrameStack {
     /// Open a new block
     pub fn push(&mut self) {
-        assert!(self.depth == 1, "Nested blocks not allowed");
         self.depth += 1;
+        self.e_counts.push(self.e_hyps.len() as u32);
+        self.d.push(BTreeMap::new());
     }
 
-    /// Current depth, 1 at outermost scope
+    /// Current depth. 0 at outermost scope, following metamath.pdf
     pub fn depth(&self) -> u32 {
         self.depth
     }
 
     /// Exit a block
     pub fn pop(&mut self) {
-        assert!(self.depth > 1);
+        assert!(self.depth > 0);
         self.depth -= 1;
-        self.d_block.clear();
-        self.e_hyps.clear();
-        self.e_labels.clear();
+        let keep_e = self.e_counts.pop().unwrap();
+        self.e_hyps.truncate(keep_e as usize);
+        self.e_labels.truncate(keep_e as usize);
+        self.d.pop();
     }
 
     /// Record a new constant symbol
@@ -415,7 +421,7 @@ impl FrameStack {
     /// Add `$f` declaration.
     /// Enforces declaration order and label restrictions.
     fn add_f(&mut self, var: Symbol, kind: Symbol, label: Label) {
-        assert!(self.depth == 1);
+        assert!(self.depth == 0);
         assert!(label == var.token_code());
         assert!(label == self.next_f);
         self.f.insert(var, kind);
@@ -424,7 +430,7 @@ impl FrameStack {
 
     /// Add `$e` hypothesis. Only allowed within a block.
     fn add_e(&mut self, stat: InputStatement, label: Label) {
-        assert!(self.depth() == 2);
+        assert!(self.depth() > 0);
         self.e_hyps.push(stat);
         self.e_labels.push(label);
     }
@@ -436,7 +442,7 @@ impl FrameStack {
 
     /// Add a `$d` statement.
     fn add_d(&mut self, stmt: InputStatement) {
-        let set = if self.depth == 1 { &mut self.d } else { &mut self.d_block };
+        let set = self.d.last_mut().unwrap();
         for &x in stmt.iter() {
             for &y in stmt.iter() {
                 if x != y {
@@ -451,8 +457,12 @@ impl FrameStack {
     /// restriction between symbols `x` and `y`
     fn lookup_d(&self, x: Symbol, y: Symbol) -> bool {
         let (x,y) = if y < x { (y,x) } else { (x,y) };
-        self.d_block.get(&x).is_some_and(|set| set.contains(&y))
-        || self.d.get(&x).is_some_and(|set| set.contains(&y))
+        for d_block in self.d.iter() {
+            if d_block.get(&x).is_some_and(|set| set.contains(&y)) {
+                return true
+            }
+        }
+        false
     }
 
     /// Check that a `$f` hypothesis exists for the given variable
@@ -470,24 +480,24 @@ impl FrameStack {
 
     /// Helper method collecting the set of relevant
     /// distinct-variable restrictions for the given list of variables.
-    fn gather_dvs(&self, mut mand_vars: &[Symbol]) -> BTreeSet<(Symbol, Symbol)> {
+    /// Requires mand_vars is sorted
+    fn gather_dvs(&self, mand_vars: &[Symbol]) -> BTreeSet<(Symbol, Symbol)> {
         let mut dvs: BTreeSet<(Symbol,Symbol)> = BTreeSet::new();
-        while let Some((x, rest)) = mand_vars.split_first() {
-            if let Some(set) = self.d_block.get(x) {
-                for y in rest {
-                    if set.contains(y) {
-                        dvs.insert((*x,*y));
+        for d_block in self.d.iter() {
+            if d_block.is_empty() {
+                continue;
+            }
+            let mut vars = mand_vars;
+            while let Some((x, rest)) = vars.split_first() {
+                vars = rest;
+                if let Some(set) = d_block.get(x) {
+                    for y in rest {
+                        if set.contains(y) {
+                            dvs.insert((*x,*y));
+                        }
                     }
                 }
             }
-            if let Some(set) = self.d.get(x) {
-                for y in rest {
-                    if set.contains(y) {
-                        dvs.insert((*x,*y));
-                    }
-                }
-            }
-            mand_vars = rest;
         }
         dvs
     }
@@ -499,8 +509,8 @@ impl FrameStack {
         //let _frame = self.list.last_mut().unwrap();
 
         // Get all the logical-type hypotheses from the frames
-        let e_hyps: Vec<InputStatement> = core::mem::take(&mut self.e_hyps);
-        let e_labels: Vec<Label> = core::mem::take(&mut self.e_labels);
+        let e_hyps: Vec<InputStatement> = self.e_hyps.clone();
+        let e_labels: Vec<Label> = self.e_labels.clone();
 
         self.mand_var_buf.clear();
         for stmt in core::iter::once(stat).chain(e_hyps.iter().copied()) {
@@ -1283,7 +1293,7 @@ impl MMContext {
     }
     #[cfg_attr(feature="prof-noinline-context",inline(never))]
     pub fn close_block(&mut self) {
-        if !(self.fs.depth() > 1) {
+        if !(self.fs.depth() > 0) {
             panic!("top level $}}")
         }
         self.fs.pop();
@@ -1301,7 +1311,7 @@ impl MMContext {
 
     #[cfg_attr(feature="prof-noinline-context",inline(never))]
     fn add_f(&mut self, label_u: Label, stat: InputStatement) {
-        assert!(self.fs.depth() == 1);
+        assert!(self.fs.depth() == 0);
         // Do this by extracting the typecode and variable from the statement and calling add_f
         self.fs
             .add_f(stat[1].clone(), stat[0].clone(), label_u.clone());
@@ -1378,7 +1388,7 @@ impl MMContext {
 
     #[cfg_attr(feature="prof-noinline-context",inline(never))]
     pub fn is_at_global_scope(&self) -> bool {
-        self.fs.depth() == 1
+        self.fs.depth() == 0
     }
 }
 
@@ -1824,7 +1834,7 @@ impl MM {
         let npop = mand_var.len() + hyp.len();
         let sp = stack.len() - npop;
         if stack.len() < npop {
-            panic!("stack underflow")
+            panic!("proof stack underflow")
         }
         let mut sp = sp;
         let mut subst: VarSubst = self.subst_buf.take().unwrap().recycle();
@@ -1835,7 +1845,7 @@ impl MM {
 
             if &entry[0] != k {
                 panic!(
-                    "stack entry doesn't match mandatory var hypothesis, found {:?} and {:?}",
+                    "proof stack entry doesn't match mandatory var hypothesis, found {:?} and {:?}",
                     &entry[0], k
                 );
             }

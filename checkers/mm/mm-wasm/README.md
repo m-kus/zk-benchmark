@@ -4,16 +4,26 @@ Check [`setup.sh`](./setup.sh) for instructions on installing the dependencies.
 
 ## Building and running
 
-Building and running the tool happen through the [Checker](./Checker) script
+Building and running the tool happen through the [checker](./checker) script
 which, prior to going through the actual checking process, will check that
 the required tools were made available by the steps described in `setup.sh`
 
 ```
-$ ./Checker --help
-Usage:
-        ./run.sh <MM_FILE> [--execute]
-the --execute flag triggers a dry-run
+$ ./checker --help
+checker [options] command [args…]
+Commands:
+  build   build the checker; see the checker's README for build requirements
+  test    run the checker unit tests (requires a `build` first)
+  run     run the checker (requires a `build` first)
+Options:
+  -d,--dry-run    dont run commands, just show what would be executed
+  -c,--certgen    generate ZK certificate (greatly increases runtime)
+  -r,--release    build/use release version of code
+  -h,--help       print this help message
 ```
+
+For internal reasons, currenly the mm-wasm checker won't run if not passed
+the `-r` flag.
 
 ## Results
 

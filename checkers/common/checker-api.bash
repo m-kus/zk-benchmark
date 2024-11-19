@@ -121,7 +121,7 @@ main() {
 #   also be processed.
 
 build_rust() {
-    (command cd "$CHECKER" && $dry cargo build ${releasever:+--release} "$@") \
+    (command cd "$CHECKER" && $dry cargo build --locked ${releasever:+--release} "$@") \
         || fail
 }
 
@@ -145,7 +145,7 @@ test_rust() {
     #   $@ doesn't already have one.
 
     (   command cd "$CHECKER" \
-            && $dry env $ncg cargo test ${releasever:+--release} "$@" $topts
+            && $dry env $ncg cargo test --locked ${releasever:+--release} "$@" $topts
     ) ||  fail
 }
 

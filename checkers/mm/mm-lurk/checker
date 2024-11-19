@@ -4,8 +4,7 @@
 script_dir=$(dirname "$(realpath $0)")
 
 build() {
-  # Install lurk
-  cargo install --git https://github.com/argumentcomputer/lurk --rev 57c48b987a94ba1f9752408a0990882c9f4f506b loam
+  echo "Nothing to build"
 }
 
 test() {

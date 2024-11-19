@@ -1,4 +1,4 @@
-#!/usr/bin/zsh
+#!/usr/bin/env zsh
 
 bold=$(tput bold)
 green='\033[0;32m'
@@ -52,20 +52,20 @@ LOG_DIR=$MM_LURK_DIR/'log'
 TMP_DIR=$MM_LURK_DIR/'tmp'
 
 for d in  $LOG_DIR $TMP_DIR ; do
- if [[ ! -d $d ]] ; then 
+ if [[ ! -d $d ]] ; then
    mkdir $d
  fi ;
 done
 
 [[ ! -d $2 ]] && {
    echo "Directory ${2} does not exist. Creating one" ;
-   mkdir $2 
+   mkdir $2
 }
 
 python3 src/mk_lurk_data.py $1 $TMP_DIR > $2/$1:t.lurk
 [[ $? -eq 1 ]] && cat $2/$1:t.lurk && exit 1
 
-for d in $TMP_DIR/* ; do 
+for d in $TMP_DIR/* ; do
    if [[ $d:t == $1:t:r ]] ; then
       [[ -a $LOG_DIR/$1:t:r.log ]] && rm -f $LOG_DIR/$1:t:r.log
       for i in $d/* ; do
@@ -77,10 +77,10 @@ done
 
 if [[ -a $LOG_DIR/$1:t:r.log ]] ; then
    echo "File ${bold}${LOG_DIR}/${1:t:r}.log${normal} was generated"
-   grep ^Error $LOG_DIR/$1:t:r.log 2>&1 ; 
-   if [[ $? == 1 ]] ; then 
+   grep ^Error $LOG_DIR/$1:t:r.log 2>&1 ;
+   if [[ $? == 1 ]] ; then
       echo "${green}No errors were found${normal}" ;
-   fi 
+   fi
 fi
 
 if [[ -a $2/$1:t.lurk ]] then
@@ -113,7 +113,7 @@ else {
    }
    echo "No log file was generated" ;
    exit 1
-} 
+}
 fi
 
 exit $OUT

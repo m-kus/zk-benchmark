@@ -68,9 +68,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "4.5.21"
+version = "4.5.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb3b4b9e5a7c7514dfa52869339ee98b3156b0bfb4e8a77c4ff4babb64b1604f"
+checksum = "b97f376d85a664d5837dbae44bf546e6477a679ff6610010f17276f686d867e8"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -78,9 +78,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.21"
+version = "4.5.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17a95aa67cc7b5ebd32aa5370189aa0d79069ef1c64ce893bd30fb24bff20ec"
+checksum = "19bc80abd44e4bed93ca373a0704ccbd1b710dc5749406201bb018272808dc54"
 dependencies = [
  "anstream",
  "anstyle",
@@ -102,9 +102,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.3"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afb84c814227b90d6895e01398aee0d8033c00e7466aca416fb6a8e0eb19d8a7"
+checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
 name = "colorchoice"
@@ -152,6 +152,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
+name = "mm-wasm"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "mmlib-host",
+ "serde",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mmlib"
 version = "0.1.0"
 dependencies = [
@@ -171,17 +181,6 @@ dependencies = [
 [[package]]
 name = "mmtokens"
 version = "0.1.0"
-
-[[package]]
-name = "mmtool"
-version = "0.1.0"
-dependencies = [
- "clap",
- "mmlib",
- "mmlib-host",
- "mmtokens",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "nu-ansi-term"
@@ -237,7 +236,7 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.8",
  "regex-syntax 0.8.5",
 ]
 
@@ -252,9 +251,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.9"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
+checksum = "368758f23274712b504848e9d5a6f010445cc8b87a7cdb4d7cbee666c1288da3"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -272,6 +271,26 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
+
+[[package]]
+name = "serde"
+version = "1.0.214"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f55c3193aca71c12ad7890f1785d2b73e1b9f63a0bbc353c08ef26fe03fc56b5"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.214"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "sharded-slab"

@@ -16,3 +16,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = "1.0"
 mmlib-host = { path = "../../common/mmlib-host" }
 clap = {version = "4.5.9", features = ["derive"] }
+
+[features]
+cuda = ["risc0-zkvm/cuda"]

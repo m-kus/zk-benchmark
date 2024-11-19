@@ -33,7 +33,12 @@ run()   {
         extra_args=""
     fi
 
-    cairo_build_dir="$CHECKER/target/dev"
+    if [ ! -z $releasever ]
+    then
+        cairo_build_dir="$CHECKER/target/release"
+    else
+        cairo_build_dir="$CHECKER/target/dev"
+    fi
     CAIRO_BUILD_DIR="$cairo_build_dir" run_risc0 mm-cairo "$@" $extra_args
 
     if [ ! -z $certgen ]
