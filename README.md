@@ -64,6 +64,13 @@ comparison betwen them and the the other 5 should be taken with a grain of salt.
 - SP1: `dev` branch, commit [2c78683](https://github.com/succinctlabs/sp1/commit/2c7868364cb832531e8cafd258aa06fbab079459)
 - zkWASM: `main` branch, commit [f5acf8c](https://github.com/DelphinusLab/zkWasm/commit/f5acf8c58c32ac8c6426298be69958a6bea2b89a)
 
+## Certificate sizes
+
+For each of the zkVMs we've been using the default type of certificate offered by that particular zkVM.
+For example, the default means composite certificates for Risc0 and SP1 and succinct certificates for zkWASM.
+We've experimented with generating _succinct_ certificates for Risc0 and _compressed_ certificates for SP1;
+the elapsed times to generate the shorter certificates seemed to be ~1.6 times larger than that for composite certificates.
+
 # How to run our tests
 
 Our full benchmark suite consists of 1225 Metamath files, split in two classes:
@@ -135,6 +142,8 @@ and count the number of resulting tokens as the `Input size` in the columns belo
 ## Proof file size VS CPU proof time
 
 ![MM-proof file size vs ZK-proof time](img/tokens_prover.svg "MM-proof file size vs ZK-proof time")
+
+__Note__: Nexus is not pictured in the graph above because even on our smallest input execution was quite slow (512 seconds).
 
 ## ZK Backends
 
@@ -211,7 +220,7 @@ See [this thread](https://zulip.argument.xyz/#narrow/stream/17-lurk/topic/Lurks.
 | [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |       **TO / OOM** |               **TO / OOM** |
 
 ### SP1
-| Benchmark                                                                         |   Input size |   Proving time |   Verification time |
+| Benchmark                                                            |   Input size |   Proving time |   Verification time |
 |:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
 | [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          7.260 |               0.203 |
 | [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |         12.220 |               0.199 |
