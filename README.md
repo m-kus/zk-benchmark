@@ -3,7 +3,7 @@
 This file contains information on the measurements that we have taken when running our [Metamath](https://us.metamath.org/) (MM) proof checker
 on different Metamath files in various zero-knowledge Virtual Machines (zkVMs).
 
-- [Benchmarking of $\\pi^2$ ZK Metamath checkers](#benchmarking-of-pi2-zk-metamath-checkers)
+- [Benchmarking of $\pi^2$ ZK Metamath checkers](#benchmarking-of-pi2-zk-metamath-checkers)
 - [Our experiment](#our-experiment)
 - [How to run our tests](#how-to-run-our-tests)
   - [Docker set up](#docker-set-up)
@@ -77,6 +77,8 @@ Our full benchmark suite consists of 1225 Metamath files, split in two classes:
 * A class generated from standard Metamath databases [(1)](https://github.com/metamath/set.mm/blob/develop/demo0.mm), [(2)](https://github.com/metamath/set.mm/blob/develop/hol.mm) by dividing them into small lemmas. These tests can be found under `checker/mm/common/metamath-files/benchmark_mm/small` in the Docker image;
 * A class of $\pi^2$ *proofs of execution* of various lengths, which prove the correctness of an ERC20-like program written in IMP. These tests can be found under `checker/mm/common/metamath-files/benchmark_mm/imp`.
   * If you want to find more on how we generate mathematical proofs of program executions, check out our [proof generation demos](https://github.com/Pi-Squared-Inc/devcon-2024/tree/main/demos#generating-metamath-proofs-for-arbitrary-programs) and our [documentation](https://docs.pi2.network/).
+
+Even though we have set up the Docker image for you to run the tests, we have provided the execution code in the [checkers](checkers/) directory.
 
 ## Docker set up
 
@@ -245,11 +247,12 @@ See [this thread](https://zulip.argument.xyz/#narrow/stream/17-lurk/topic/Lurks.
 
 # Disclaimers
 We believe there are several reasons why our code may be improved.
-- some of the zkVMs that we are considering (e.g. Jolt, Nexus) are still under active development and our corresponding proof
+- Some of the zkVMs that we are considering (e.g. Jolt, Nexus) are still under active development and our corresponding proof
 checker implementations could benefit from future improvements.
-- we are building the Cairo prover from an old [commit](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers).
-- some of the zkVMs (Cairo, Lurk) are using specialized languages which opens up potential for optimizations
-unique to their particular languages.
+- We are building the Cairo prover from an old [commit](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers).
+- Some of the zkVMs (Cairo, Lurk) are using specialized languages which opens up potential for optimizations
+unique to their particular languages. As such, we did not include the graphs from these zkVMs in the "Proof file size VS Proof time" section
+as all zkVMs are Rust-based except for these zkVMs. But we did include the benchmark measurements under the "ZK Backends" section.
 
 All the implementations could actually benefit from hand crafted optimizations, since the zkVM field is such an active research field.
 If you have any ideas for improvements or spot areas that could be optimized, don't hesitate to jump in. We welcome contributions!
