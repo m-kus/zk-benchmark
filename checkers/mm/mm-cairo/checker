@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+#   The `scarb` command is quite similar to `cargo`, being based on the
+#   `cargo` code. But there are various differences, e.g., `--release`
+#   needs to come before the `build`/`test` command rather than after.
+
+#   XXX This does not curently generate certs at all.
+
+build() {
+    build_rust
+    #   XXX target dir needs to be fixed; does not use .cargo/config.toml
+    #       but uses `$CWD/target/`
+    (command cd "$CHECKER" && $dry scarb ${releasever:+--release} build "$@")
+}
+
+test() {
+    test_rust
+    (command cd "$CHECKER" \
+        && $dry env scarb  ${releasever:+--release} test "$@") || fail
+}
+
+run()   {
+    #   The `mm-cario` program takes care of doing the `scarb cairo-run` or
+    #   equivalent, and reads env var CAIRO_BUILD_DIR to find the `scarb
+    #   build` output. Currently that's in `mm-cario/target/` because
+    #   `scarb build` needs to be run from `mm-cairo/` and seems to
+    #   insist on putting its output under $PWD/target/.
+    if [ ! -z $certgen ]
+    then
+        extra_args="--cert-gen --trace-file $@.trace --memory-file $@.memory"
+    else
+        extra_args=""
+    fi
+
+    if [ ! -z $releasever ]
+    then
+        cairo_build_dir="$CHECKER/target/release"
+    else
+        cairo_build_dir="$CHECKER/target/dev"
+    fi
+    CAIRO_BUILD_DIR="$cairo_build_dir" run_risc0 mm-cairo "$@" $extra_args
+
+    if [ ! -z $certgen ]
+    then
+        platinum-prover prove $@.trace $@.memory $@.proof
+        platinum-prover verify $@.proof
+    fi
+}
+
+main "$@"

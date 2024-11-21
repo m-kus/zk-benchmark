@@ -1,0 +1,57 @@
+#!/bin/bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+script_dir=$(dirname "$(realpath $0)")
+
+build() {
+  CLI=`which zkwasm-cli`
+  if [ ! -f $CLI ]; then
+      >&2 echo "Error: zkwasm CLI not found. Make sure it is accessible through PATH. Did you follow the steps from ${SCRIPT_DIR}/setup.sh?"
+      exit 1
+  fi
+  cd $script_dir
+  if [ ! -d mm-params ]; then
+    >&2 echo "Generating public parameters"
+    $CLI --params mm-params metamath setup
+  fi
+  cargo build --release
+  cd guest
+  wasm-pack build --target web
+}
+
+test() {
+  run $script_dir/../runtest/anatomy/anatomy.mm
+}
+
+run()   {
+  if [ -z $releasever ]; then
+    echo "Non-release execution of mm-wasm is disabled for the moment"
+    return 0
+  fi
+  CLI=`which zkwasm-cli`
+  if [ ! -f $CLI ]; then
+      >&2 echo "Error: zkwasm CLI not found. Make sure it is accessible through PATH. Did you follow the steps from ${SCRIPT_DIR}/setup.sh?"
+      exit 1
+  fi
+  case $@ in
+    /*) MM_FILE="$@" ;;
+    *) MM_FILE="$PWD/$@" ;;
+  esac
+  if [ ! -f "${MM_FILE}" ]; then
+    >&2 echo "Error: MM file not found at ${MM_FILE}"
+    exit 1
+  fi
+  cd $script_dir
+  ZK_INPUT="${MM_FILE}.zkwasm.bin"
+  ZK_OUTPUT="${MM_FILE}.zkwasm.out"
+  /usr/bin/time -f "Time elapsed for preprocessing: %E" cargo run --release -- $@ $ZK_INPUT
+  if [ ! -z $certgen ]
+    then
+      /usr/bin/time -f "Max memory: %Mk" $CLI --params mm-params metamath prove --wasm ./guest/pkg/method_bg.wasm --output ${ZK_OUTPUT} --private $ZK_INPUT:file
+      /usr/bin/time -f "Time elapsed for receipt verification: %E" $CLI --params mm-params metamath verify --output ${ZK_OUTPUT}
+    else
+        /usr/bin/time -f "Time elapsed for executing: %E" $CLI --params mm-params metamath dry-run --wasm ./guest/pkg/method_bg.wasm --output ${ZK_OUTPUT} --private $ZK_INPUT:file
+    fi
+}
+
+main "$@"

@@ -1,0 +1,25 @@
+From 281415151a920df770ea626a805ec37695884a24 Mon Sep 17 00:00:00 2001
+From: Zhang Junyu <junyu92@gmail.com>
+Date: Thu, 11 Jul 2024 09:43:38 +0000
+Subject: [PATCH] expand image capacity for metamath
+
+---
+ crates/zkwasm/src/circuits/utils/image_table.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/crates/zkwasm/src/circuits/utils/image_table.rs b/crates/zkwasm/src/circuits/utils/image_table.rs
+index f8d64d3..b0597a4 100644
+--- a/crates/zkwasm/src/circuits/utils/image_table.rs
++++ b/crates/zkwasm/src/circuits/utils/image_table.rs
+@@ -27,7 +27,7 @@ use crate::circuits::utils::bn_to_field;
+ 
+ pub const STACK_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
+ pub const GLOBAL_CAPABILITY: usize = DEFAULT_VALUE_STACK_LIMIT;
+-pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 40960;
++pub const INIT_MEMORY_ENTRIES_OFFSET: usize = 40960*2;
+ 
+ pub(crate) struct InitMemoryLayouter {
+     pub(crate) pages: u32,
+-- 
+2.34.1
+

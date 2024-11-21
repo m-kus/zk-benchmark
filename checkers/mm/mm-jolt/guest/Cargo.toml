@@ -1,0 +1,17 @@
+[package]
+name = "guest"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "guest"
+path = "./src/lib.rs"
+
+[features]
+guest = ["mmlib/use_hints"]
+
+[dependencies]
+jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt" }
+mmtokens = { path = "../../common/mmtokens" }
+serde = { version = "1.0", default-features = false, features = ["alloc"] }
+mmlib = { path = "../../common/mmlib", default-features = false }

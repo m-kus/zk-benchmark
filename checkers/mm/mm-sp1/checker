@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+build() { build_rust "$@"; }
+test()  { test_rust "$@"; }
+run()   {
+  if [ ! -z $certgen ]
+  then
+      extra_args=""
+  else
+      extra_args="--execute"
+  fi
+
+
+    run_risc0 mm-sp1 "$@" $extra_args;
+}
+
+main "$@"

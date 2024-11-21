@@ -1,0 +1,25 @@
+#!/bin/bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+script_dir=$(dirname "$(realpath $0)")
+
+build() {
+  echo "Nothing to build"
+}
+
+test() {
+  cd $script_dir
+  $script_dir/src/test2.sh
+}
+
+run()   {
+  last_prop_name=$(cargo run --manifest-path $script_dir/../common/mmtool/Cargo.toml $1 | grep "Last checked proposition" | awk '{print $6;}')
+  last_prop_name=$(python3 $script_dir/replace_lurk_token.py $last_prop_name)
+
+  target_path=$(realpath $1)
+  lurk_data_dir=$script_dir/lurk_data/
+  cd $script_dir
+  $script_dir/mm-lurk.sh $target_path $lurk_data_dir $last_prop_name
+}
+
+main "$@"

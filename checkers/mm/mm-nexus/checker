@@ -1,0 +1,23 @@
+#!/bin/bash
+. "$(dirname "$0")/../../common/checker-api.bash"
+
+script_dir=$(dirname "$(realpath $0)")
+
+build() { build_rust "$@"; }
+
+test() { test_rust "$@"; }
+
+run()   {
+  if [ ! -z $certgen ]
+  then
+      extra_args=""
+  else
+      extra_args="--only-run"
+  fi
+
+  target_path=$(realpath $1)
+  cd $script_dir
+  cargo run -r --locked -- $target_path $extra_args
+}
+
+main "$@"

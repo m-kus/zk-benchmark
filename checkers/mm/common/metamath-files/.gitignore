@@ -1,0 +1,5 @@
+*.memory
+*.trace
+*.proof
+*.zkwasm.bin
+*.zkwasm.out
