@@ -1,3 +1,5 @@
 # Cargo.lock
 
 /mm/mm-cairo/Scarb.lock
+target
+__pycache__

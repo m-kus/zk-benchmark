@@ -42,6 +42,10 @@ struct Args {
     #[arg(long = "cert-gen", default_value = "false")]
     certgen: bool,
 
+    /// Path to dump program args
+    #[arg(long = "args-file")]
+    args_file: Option<String>,
+
     #[command(flatten)]
     main_theorem_args: MainTheoremArgs,
 }
@@ -98,7 +102,17 @@ fn main() {
 
     let (_ident_table, res) = read_mm_file(&args.file);
 
-    if args.certgen {
+    if let Some(args_file) = args.args_file {
+        let mut arr = vec![];
+        for token in res {
+            arr.push(Felt::from_str(token.to_string().as_str()).expect(
+                format!("Could not convert \"{}\" to felt252.", token.to_string()).as_str(),
+            ));
+        }
+
+        let program_args = arr.into_iter().map(|felt| felt.to_string()).reduce(|acc, elt| format!("{acc} {elt}")).unwrap();
+        std::fs::write(args_file, format!("[{program_args}]")).unwrap();
+    } else if args.certgen {
         let mut arr = vec![];
         for token in res {
             arr.push(Felt::from_str(token.to_string().as_str()).expect(

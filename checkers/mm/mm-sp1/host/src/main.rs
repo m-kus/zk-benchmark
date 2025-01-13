@@ -18,7 +18,7 @@ use mmlib_host::{compute_hints, prepare_mm_file, MainTheoremArgs};
 use clap::Parser;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const GUEST_ELF: &[u8] = include_bytes!("../../../../../.build/elf/riscv32im-succinct-zkvm-elf");
+pub const GUEST_ELF: &[u8] = include_bytes!("../../guest/elf/riscv32im-succinct-zkvm-elf");
 
 /// The arguments for the command.
 #[derive(Parser)]
