@@ -3,7 +3,7 @@
 This file contains information on the measurements that we have taken when running our [Metamath](https://us.metamath.org/) (MM) proof checker
 on different Metamath files in various zero-knowledge Virtual Machines (zkVMs).
 
-- [Benchmarking of $\pi^2$ ZK Metamath checkers](#benchmarking-of-pi2-zk-metamath-checkers)
+- [Benchmarking of Pi Squared ZK Metamath checkers](#benchmarking-of-pi2-zk-metamath-checkers)
 - [Our experiment](#our-experiment)
 - [How to run our tests](#how-to-run-our-tests)
   - [Docker set up](#docker-set-up)
@@ -20,10 +20,11 @@ on different Metamath files in various zero-knowledge Virtual Machines (zkVMs).
     - [Lurk](#lurk)
     - [RISC0 (GPU)](#risc0-gpu)
     - [RISC0 (CPU)](#risc0-cpu)
-    - [SP1](#sp1)
+    - [SP1 (GPU)](#sp1-gpu)
+    - [SP1 (CPU)](#sp1-cpu)
     - [zkWASM (GPU)](#zkwasm-gpu)
 - [Disclaimers](#disclaimers)
-- [One possible optimization](#one-possible-optimization)
+- [Acknowledgements](#acknowledgements)
 
 
 # Our experiment
@@ -43,7 +44,8 @@ The implementations of our Metamath proof checker in each of the above zkVMs can
 
 ## GPU support
 
-Out zkVMs that we are considering only Risc0, zkWASM, SP1 and Cairo provide GPU support. Still, we were only able to run Risc0 and zkWASM with GPU support due to internal setup issues for SP1 and evelvind code base for Cairo.
+Out zkVMs that we are considering only Risc0, zkWASM, SP1 and Cairo provide GPU support. Still, we were only
+able to run Risc0, zkWASM, and SP1 with GPU support due to inter evolving code base for Cairo.
 
 ## Rust support
 
@@ -55,14 +57,18 @@ comparison betwen them and the the other 5 should be taken with a grain of salt.
 
 ## Versions of the zkVMs used
 
-- Cairo:  the Lambdaworks prover, main branch, commit [a591186](https://github.com/lambdaclass/lambdaworks/commit/a591186e6c4dd53301b03b4ddd69369abe99f960)
-  (the current version, while faster, does not yet support Cairo)
-- Jolt: `main` branch, commit [3b14242](https://github.com/a16z/jolt/commit/3b142426d9648299d9c6912e7e1b4698cf91491b)
-- Lurk: `main` branch, commit [57c48b9](https://github.com/argumentcomputer/lurk/commit/57c48b987a94ba1f9752408a0990882c9f4f506b)
-- Nexus: tag [v0.2.3](https://github.com/nexus-xyz/nexus-zkvm/releases/tag/v0.2.3)
-- Risc0: version 1.0.5
-- SP1: `dev` branch, commit [2c78683](https://github.com/succinctlabs/sp1/commit/2c7868364cb832531e8cafd258aa06fbab079459)
-- zkWASM: `main` branch, commit [f5acf8c](https://github.com/DelphinusLab/zkWasm/commit/f5acf8c58c32ac8c6426298be69958a6bea2b89a)
+- Cairo:  the Lambdaworks platinum prover, main branch, commit [a591186](https://github.com/lambdaclass/lambdaworks/commit/a591186e6c4dd53301b03b4ddd69369abe99f960) (Sept 25, 2024)
+- Jolt: `main` branch, commit [556ae6a](https://github.com/a16z/jolt/commit/556ae6a3e293703b74ca329ca73e137f553447f6) (Jan 21, 2024)
+- Lurk: `main` branch, commit [57c48b9](https://github.com/argumentcomputer/lurk/commit/57c48b987a94ba1f9752408a0990882c9f4f506b) (Nov 5, 2024)
+- Nexus: tag [v0.2.3](https://github.com/nexus-xyz/nexus-zkvm/releases/tag/v0.2.3) (Aug 21, 2024)
+- Risc0 (CPU): version 1.0.5 (Jul 30, 2024)
+- Risc0 (GPU): `main` branch, commit [26f7ef09](https://github.com/risc0/risc0/commit/26f7ef09fa51fd2ca6b2af5529187c8fa1517f6e), post 1.2.1 (Jan 16, 2025)
+- SP1 (CPU): `dev` branch, commit [2c78683](https://github.com/succinctlabs/sp1/commit/2c7868364cb832531e8cafd258aa06fbab079459) (Nov 5, 2024)
+- SP1 (GPU): `dev` branch, commit [dae15e9](https://github.com/succinctlabs/sp1/commit/dae15e9fe60d51a3a702361c74ca93f97fab2e16), 4.0.1 (Jan 17, 2025)
+- zkWASM: `main` branch, commit [f5acf8c](https://github.com/DelphinusLab/zkWasm/commit/f5acf8c58c32ac8c6426298be69958a6bea2b89a) (Oct 19, 2024)
+
+Note Jolt, Lurk, and Nexus are all pre-1.0 and under heavy development, and Cairo's upcoming [stwo-based](https://github.com/starkware-libs/stwo-cairo) prover
+is expected to significantly improve performance but was not yet ready for testing. 
 
 ## Certificate sizes
 
@@ -143,13 +149,15 @@ and count the number of resulting tokens as the `Input size` in the columns belo
 
 ## Proof file size VS CPU proof time
 
-![MM-proof file size vs ZK-proof time](img/tokens_prover.svg "MM-proof file size vs ZK-proof time")
+![MM-proof file size vs ZK-proof time](img/tokens_prover2.svg "MM-proof file size vs ZK-proof time")
 
 In order to save time, for each zkVM we run only some of the 1225 files, which makes the lines from the above figure to be rather 
 approximations of the points corresponding to the measured files. This is the reason for which, for some particular files, one
  particular zkVM could behave better than other one, even if the figure doesn't show this. For a more precise comparison, we encourage you to check our measurements [here](https://github.com/Pi-Squared-Inc/zk-benchmark/blob/main/data/zk_measurements.csv).
 
 __Note__: Nexus is not pictured in the graph above because even on our smallest input execution was quite slow (512 seconds).
+
+![Fastest GPU Provers](img/tokens_prover_gpu_only.svg "MM-proof file size vs ZK-proof time")
 
 ## ZK Backends
 
@@ -180,12 +188,12 @@ we did not generate a table for Nexus.
 ### Jolt
 | Benchmark                                                                         |   Input size |   Proving time |   Verification time |
 |:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
-| [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          3.170 |               0.174 |
-| [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |          5.350 |               0.156 |
-| [hol_ax13.mm](mm-files/hol_ax13.mm)                                               |          508 |         10.290 |               0.229 |
-| [hol_cbvf.mm](mm-files/hol_cbvf.mm)                                               |         1786 |         28.530 |               0.194 |
-| [45.erc20transfer_success_tm_0_6.mm](mm-files/45.erc20transfer_success_tm_0_6.mm) |         6249 |         30.000 |               0.200 |
-| [25.erc20transfer_success_tm_0_9.mm](mm-files/25.erc20transfer_success_tm_0_9.mm) |        21332 |         91.870 |               0.218 |
+| [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |            2.04|             0.08246 |
+| [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |           2.89 |             0.06515 |
+| [hol_ax13.mm](mm-files/hol_ax13.mm)                                               |          508 |           5.25 |             0.08273 |
+| [hol_cbvf.mm](mm-files/hol_cbvf.mm)                                               |         1786 |          12.09 |             0.08691 |
+| [45.erc20transfer_success_tm_0_6.mm](mm-files/45.erc20transfer_success_tm_0_6.mm) |         6249 |          21.15 |              0.0848 |
+| [25.erc20transfer_success_tm_0_9.mm](mm-files/25.erc20transfer_success_tm_0_9.mm) |        21332 |          65.51 |             0.09053 |
 | [3.erc20transfer_success_tm_0.mm](mm-files/3.erc20transfer_success_tm_0.mm)       |        73862 |        **TO / OOM**     |             **TO / OOM**     |
 | [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |        **TO / OOM**     |             **TO / OOM**     |
 
@@ -202,18 +210,20 @@ We have encountered out-of-memory issues with the next largest Metamath file in 
 See [this thread](https://zulip.argument.xyz/#narrow/stream/17-lurk/topic/Lurks.20gets.20killed.20for.20memory.20exhaustion) on Argument Zulip for further discussion.
 
 ### RISC0 (GPU)
+Succinct proof mode
 | Benchmark                                                                         |   Input size |   Proving time |   Verification time |
 |:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
-| [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          0.443 |               0.016 |
-| [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |          0.553 |               0.017 |
-| [hol_ax13.mm](mm-files/hol_ax13.mm)                                               |          508 |          0.769 |               0.018 |
-| [hol_cbvf.mm](mm-files/hol_cbvf.mm)                                               |         1786 |          2.070 |               0.035 |
-| [45.erc20transfer_success_tm_0_6.mm](mm-files/45.erc20transfer_success_tm_0_6.mm) |         6249 |          2.090 |               0.035 |
-| [25.erc20transfer_success_tm_0_9.mm](mm-files/25.erc20transfer_success_tm_0_9.mm) |        21332 |          3.950 |               0.053 |
-| [3.erc20transfer_success_tm_0.mm](mm-files/3.erc20transfer_success_tm_0.mm)       |        73862 |         15.990 |               0.225 |
-| [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |         63.740 |               0.885 |
+| [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          0.9746|             0.01526 |
+| [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |           1.01 |             0.01526 |
+| [hol_ax13.mm](mm-files/hol_ax13.mm)                                               |          508 |           1.09 |             0.01525 |
+| [hol_cbvf.mm](mm-files/hol_cbvf.mm)                                               |         1786 |           1.37 |             0.01527 |
+| [45.erc20transfer_success_tm_0_6.mm](mm-files/45.erc20transfer_success_tm_0_6.mm) |         6249 |           1.36 |             0.01525 |
+| [25.erc20transfer_success_tm_0_9.mm](mm-files/25.erc20transfer_success_tm_0_9.mm) |        21332 |           1.99 |             0.01526 |
+| [3.erc20transfer_success_tm_0.mm](mm-files/3.erc20transfer_success_tm_0.mm)       |        73862 |          13.53 |             0.01534 |
+| [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |          52.44 |             0.01526 |
 
 ### RISC0 (CPU)
+Composite proof mode
 | Benchmark                                                                         |   Input size |   Proving time |   Verification time |
 |:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
 | [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          3.140 |               0.016 |
@@ -225,7 +235,21 @@ See [this thread](https://zulip.argument.xyz/#narrow/stream/17-lurk/topic/Lurks.
 | [3.erc20transfer_success_tm_0.mm](mm-files/3.erc20transfer_success_tm_0.mm)       |        73862 |        276.440 |               0.225 |
 | [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |       **TO / OOM** |               **TO / OOM** |
 
-### SP1
+### SP1 (GPU)
+Compact proof mode
+| Benchmark                                                            |   Input size |   Proving time |   Verification time |
+|:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
+| [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |           6.20 |               0.1004 |
+| [hol_wov.mm](mm-files/hol_wov.mm)                                                 |          147 |           5.91 |               0.1002 |
+| [hol_ax13.mm](mm-files/hol_ax13.mm)                                               |          508 |           6.12 |               0.1002 |
+| [hol_cbvf.mm](mm-files/hol_cbvf.mm)                                               |         1786 |           6.68 |               0.1005 |
+| [45.erc20transfer_success_tm_0_6.mm](mm-files/45.erc20transfer_success_tm_0_6.mm) |         6249 |           6.80 |               0.1002 |
+| [25.erc20transfer_success_tm_0_9.mm](mm-files/25.erc20transfer_success_tm_0_9.mm) |        21332 |           8.49 |               0.1004 |
+| [3.erc20transfer_success_tm_0.mm](mm-files/3.erc20transfer_success_tm_0.mm)       |        73862 |          15.94 |               0.1002 |
+| [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |          33.15 |               0.1005 |
+
+### SP1 (CPU)
+Core proof mode
 | Benchmark                                                            |   Input size |   Proving time |   Verification time |
 |:----------------------------------------------------------------------------------|-------------:|---------------:|--------------------:|
 | [hol_idi.mm](mm-files/hol_idi.mm)                                                 |           39 |          7.260 |               0.203 |
@@ -250,16 +274,22 @@ See [this thread](https://zulip.argument.xyz/#narrow/stream/17-lurk/topic/Lurks.
 | [9.erc20transfer_success.mm](mm-files/9.erc20transfer_success.mm)                 |       258135 |        **TO / OOM**     |             **TO / OOM**     |
 
 # Disclaimers
-We believe there are several reasons why our code may be improved.
-- Some of the zkVMs that we are considering (e.g. Jolt, Nexus) are still under active development and our corresponding proof
+We believe there are several reasons why our code or results may be improved.
+- Some of the zkVMs that we are considering are in early development (e.g. Jolt, Nexus) and our corresponding proof
 checker implementations could benefit from future improvements.
-- We are building the Cairo prover from an old [commit](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers).
+- We are executing Cairo with Lambdaclass's Cairo Platinum prover rather than Starkware's Stone prover (and from an [old commit](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers) as it is no longer supported), and also the
+  and the upcoming stwo-based [prover](https://github.com/starkware-libs/stwo-cairo) will use significantly improved technology but is not yet available.
 - Some of the zkVMs (Cairo, Lurk) are using specialized languages which opens up potential for optimizations
-unique to their particular languages. As such, we did not include the graphs from these zkVMs in the "Proof file size VS Proof time" section
+unique to their particular languages, and we have less experience in them than in Rust.
+As such, we did not include the graphs from these zkVMs in the "Proof file size VS Proof time" section
 as all zkVMs are Rust-based except for these zkVMs. But we did include the benchmark measurements under the "ZK Backends" section.
+
+We know that the field is continuously evolving and they are getting better and better with any release. We are happy to receive any further news on the improvements that they are going to make and to update our benchmarks accordingly.
 
 All the implementations could actually benefit from hand crafted optimizations, since the zkVM field is such an active research field.
 If you have any ideas for improvements or spot areas that could be optimized, don't hesitate to jump in. We welcome contributions!
 
+# Acknowledgements
 
-We would like to thank all the mentioned zkVM providers for having provided us feedback on these benchmarks and suggestions to improve our existing proof checking algorithm. We know that the field is continuously evolving and they are getting better and better with any release. We are happy to receive any further news on the improvements that they are going to make and to update our benchmarks accordingly.
+We would like to thank all the mentioned zkVM providers for having provided us feedback on these benchmarks and assistance with their platforms.
+Thanks to Delphinius Labs for lending server time, Risc Zero for profiling and performance model advice, Delphinus Labs, Succinct and A16Z for suggestions on zkVM settings, Lurk Labs for Lurk programming advice, Starkware for Cairo programming advice and code contributions.
