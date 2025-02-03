@@ -81,7 +81,6 @@ impl SymbolImpl of SymbolTrait {
 type Statement = Array<Symbol>;
 type Proof = Array<TokenCode>;
 
-#[derive(Drop)]
 trait TokenReader {
     fn read(ref self: VecTokens) -> Option<Token>;
     fn read_statement(ref self: VecTokens) -> Statement;
@@ -1035,15 +1034,9 @@ impl MMImpl of MMTrait {
     }
 }
 
-
-fn main(mm_proof: Array<felt252>) -> Array<felt252> {
-
-    let mut mm_proof_tok: Array<TokenCode> = array![];
-    for x in mm_proof {
-        mm_proof_tok.append(x.try_into().unwrap());
-    };
+#[executable]
+fn main(mm_proof_tok: Array<TokenCode>) {
     check_proof(mm_proof_tok);
-    array![]
 }
 
 fn check_proof(mm_proof: Array<TokenCode>) {
